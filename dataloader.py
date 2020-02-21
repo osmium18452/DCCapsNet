@@ -1,14 +1,10 @@
 import numpy as np
 import scipy.io
 from tqdm import tqdm
-from utils import convertToOneHot,LENGTH
+from utils import convertToOneHot, LENGTH
 import time
 import random
 import scipy.ndimage
-
-
-# TODO: data processing summary.
-# TODO: dual channel cnn.
 
 
 class DataLoader:
@@ -19,6 +15,7 @@ class DataLoader:
 	numEachClass = []
 	trainNum = 0
 	testNum = 0
+	allLabeledNum = 0
 
 	def __init__(self, pathName, matName, patchSize, portionOrNum, ratio):
 		# load data
@@ -68,13 +65,16 @@ class DataLoader:
 		self.trainNum = self.trainLabel.shape[0]
 		self.testNum = self.testLabel.shape[0]
 
+		for i in range(self.numClasses):
+			self.allLabeledNum+=len(self.numEachClass[i])
+
 	def __patch(self, i, j):
 		widthSlice = slice(i, i + self.patchSize)
 		heightSlice = slice(j, j + self.patchSize)
 		return self.data[heightSlice, widthSlice, :]
 
 	def __slice(self):
-		with tqdm(total=self.height * self.width, desc="slicing ",ncols=LENGTH) as pbar:
+		with tqdm(total=self.height * self.width, desc="slicing ", ncols=LENGTH) as pbar:
 			for i in range(self.height):
 				for j in range(self.width):
 					tmpLabel = self.label[i, j]
@@ -94,7 +94,7 @@ class DataLoader:
 
 	def __prepareDataByPortion(self, portion):
 		np.random.seed(0)
-		with tqdm(total=self.numClasses, desc="dividing",ncols=LENGTH) as pbar:
+		with tqdm(total=self.numClasses, desc="dividing", ncols=LENGTH) as pbar:
 			for i in range(self.numClasses):
 				label = i
 				index = np.random.choice(self.numEachClass[label], int((self.numEachClass[label]) * portion + 0.5),
@@ -114,7 +114,7 @@ class DataLoader:
 
 	def __prepareDataByNum(self, num):
 		np.random.seed(0)
-		with tqdm(total=self.numClasses, desc="dividing patches",ncols=LENGTH) as pbar:
+		with tqdm(total=self.numClasses, desc="dividing patches", ncols=LENGTH) as pbar:
 			for i in range(self.numClasses):
 				label = i
 				index = np.random.choice(self.numEachClass[label], int(num), replace=False)
@@ -135,7 +135,7 @@ class DataLoader:
 		index = np.random.choice(range(self.trainNum), int(self.trainNum * ratio), replace=False)
 		udPatch, udLabel, udSpectrum = [], [], []
 		lrPatch, lrLabel, lrSpectrum = [], [], []
-		noisePatch, noiseLabel, noiseSpectrum = [], [], []
+		# noisePatch, noiseLabel, noiseSpectrum = [], [], []
 		angelPatch, angelLabel, angelSpectrum = [], [], []
 		with tqdm(total=len(index), desc="augmenting", ncols=LENGTH) as pbar:
 			for i in index:
@@ -147,9 +147,9 @@ class DataLoader:
 				lrSpectrum.append(self.trainSpectrum[i])
 				lrLabel.append(self.trainLabel[i])
 
-				noisePatch.append(self.trainPatch[i] + np.random.normal(0, 0.01, size=np.shape(self.trainPatch[0])))
-				noiseSpectrum.append(self.trainSpectrum[i])
-				noiseLabel.append(self.trainLabel[i])
+				# noisePatch.append(self.trainPatch[i] + np.random.normal(0, 0.01, size=np.shape(self.trainPatch[0])))
+				# noiseSpectrum.append(self.trainSpectrum[i])
+				# noiseLabel.append(self.trainLabel[i])
 
 				angel = random.randrange(-180, 180, 30)
 				angelPatch.append(scipy.ndimage.interpolation.rotate(self.trainPatch[i], angel, axes=(1, 0),
@@ -168,10 +168,10 @@ class DataLoader:
 		self.trainSpectrum.extend(lrSpectrum[i] for i in range(len(index)))
 		self.trainLabel.extend(lrLabel[i] for i in range(len(index)))
 
-		print(np.shape(noisePatch), type(noisePatch))
-		self.trainPatch.extend(noisePatch[i] for i in range(len(index)))
-		self.trainSpectrum.extend(noiseSpectrum[i] for i in range(len(index)))
-		self.trainLabel.extend(noiseLabel[i] for i in range(len(index)))
+		# print(np.shape(noisePatch), type(noisePatch))
+		# self.trainPatch.extend(noisePatch[i] for i in range(len(index)))
+		# self.trainSpectrum.extend(noiseSpectrum[i] for i in range(len(index)))
+		# self.trainLabel.extend(noiseLabel[i] for i in range(len(index)))
 
 		# print(np.shape(angelPatch), type(angelPatch))
 		self.trainPatch.extend(angelPatch[i] for i in range(len(index)))
@@ -199,6 +199,19 @@ class DataLoader:
 
 	def loadAllPatchOnly(self):
 		return self.allPatch, self.allPatchLabel
+
+	def loadAllLabeledData(self, patchOnly=False):
+		patch = []
+		spectrum = []
+		label = []
+		for i in range(self.numClasses):
+			patch.extend(self.classPatches[i][j] for j in range(self.numEachClass[i]))
+			spectrum.extend(self.classSpectrum[i][j] for j in range(self.numEachClass[i]))
+			label.extend(i for j in range(self.numEachClass))
+		if patchOnly:
+			return patch, label
+		else:
+			return patch, spectrum, label
 
 
 if __name__ == "__main__":
