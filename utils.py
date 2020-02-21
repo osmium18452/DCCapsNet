@@ -2,21 +2,6 @@ import numpy as np
 
 LENGTH=None
 def convertToOneHot(vector, num_classes=None):
-	"""
-	Converts an input 1-D vector of integers into an output
-	2-D array of one-hot vectors, where an i'th input value
-	of j will set a '1' in the i'th row, j'th column of the
-	output array.
-
-	Example:
-		v = np.array((1, 0, 4))
-		one_hot_v = convertToOneHot(v)
-		print one_hot_v
-
-		[[0 1 0 0 0]
-		 [1 0 0 0 0]
-		 [0 0 0 0 1]]
-	"""
 
 	assert isinstance(vector, np.ndarray)
 	assert len(vector) > 0
@@ -30,3 +15,13 @@ def convertToOneHot(vector, num_classes=None):
 	result = np.zeros(shape=(len(vector), num_classes))
 	result[np.arange(len(vector)), vector] = 1
 	return result.astype(int)
+
+def calOA(probMap,groundTruth):
+	pred=np.argmax(probMap,axis=1)
+	groundTruth=np.argmax(groundTruth,axis=1)
+	totalCorrect=np.sum(np.equal(pred,groundTruth))
+	total=np.shape(groundTruth)[0]
+	print("true: %d, all: %d"%(totalCorrect,total))
+	return totalCorrect.astype(float)/total
+
+

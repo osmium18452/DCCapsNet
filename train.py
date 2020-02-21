@@ -6,7 +6,7 @@ import os
 import argparse
 from dataloader import DataLoader
 from model import DCCapsNet, CapsNet
-from utils import LENGTH
+from utils import LENGTH, calOA
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--epochs", default=50, type=int)
@@ -105,18 +105,27 @@ with tf.Session() as sess:
 
 	iter = dataloader.allLabeledNum // BATCH_SIZE
 	probMap=np.zeros((1,dataloader.numClasses))
+	print(np.shape(probMap))
 	for i in range(iter):
-		batch_w = trainSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
-		batch_x = trainPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
-		batch_y = trainLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
-		tmp=sess.run([pred],feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
+		batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
+		batch_x = allLabeledPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
+		batch_y = allLabeledLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
+		tmp=sess.run(pred,feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
+		# print(np.shape(tmp))
 		probMap=np.concatenate((probMap,tmp),axis=0)
+		print(np.shape(probMap))
 
 	if iter*BATCH_SIZE < dataloader.allLabeledNum:
-		batch_w = trainSpectrum[iter * BATCH_SIZE:, :, :]
-		batch_x = trainPatch[iter * BATCH_SIZE:, :, :, :]
-		batch_y = trainLabel[iter * BATCH_SIZE:, :]
-		tmp = sess.run([pred], feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
+		batch_w = allLabeledSpectrum[iter * BATCH_SIZE:, :, :]
+		batch_x = allLabeledPatch[iter * BATCH_SIZE:, :, :, :]
+		batch_y = allLabeledLabel[iter * BATCH_SIZE:, :]
+		tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
 		probMap=np.concatenate((probMap,tmp),axis=0)
+		# print(np.shape(probMap))
 
+	# print(np.shape(probMap))
 	probMap = np.delete(probMap, (0), axis=0)
+	# print(np.shape(probMap))
+
+	OA=calOA(probMap,allLabeledLabel)
+	print(OA)

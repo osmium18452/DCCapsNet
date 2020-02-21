@@ -66,7 +66,7 @@ class DataLoader:
 		self.testNum = self.testLabel.shape[0]
 
 		for i in range(self.numClasses):
-			self.allLabeledNum+=len(self.numEachClass[i])
+			self.allLabeledNum+=self.numEachClass[i]
 
 	def __patch(self, i, j):
 		widthSlice = slice(i, i + self.patchSize)
@@ -207,7 +207,11 @@ class DataLoader:
 		for i in range(self.numClasses):
 			patch.extend(self.classPatches[i][j] for j in range(self.numEachClass[i]))
 			spectrum.extend(self.classSpectrum[i][j] for j in range(self.numEachClass[i]))
-			label.extend(i for j in range(self.numEachClass))
+			label.extend(i for j in range(self.numEachClass[i]))
+		patch=np.array(patch)
+		spectrum=np.array(spectrum)
+		label=convertToOneHot(np.array(label))
+		spectrum = np.reshape(spectrum, [-1, self.bands, 1])
 		if patchOnly:
 			return patch, label
 		else:
@@ -215,13 +219,6 @@ class DataLoader:
 
 
 if __name__ == "__main__":
-	with tqdm(total=100, desc="processing") as pbar:
-		for i in range(100):
-			pbar.set_postfix_str("lost: %3d, left: %3d" % (i, 100 - i))
-			pbar.update(1)
-			time.sleep(0.1)
-	exit(0)
-
 	pathName = []
 	pathName.append(".\\data\\Indian_pines.mat")
 	pathName.append(".\\data\\Indian_pines_gt.mat")
@@ -230,6 +227,7 @@ if __name__ == "__main__":
 	matName.append("indian_pines_gt")
 	# print([5 for i in range(10)])
 
-	data = DataLoader(pathName, matName, 5, 0.1)
-	patch, label = data.loadTrainPatchOnly()
+	data = DataLoader(pathName, matName, 5, 0.1, 0)
+	patch, spectrum,label = data.loadAllLabeledData()
+	print(np.shape(patch),np.shape(spectrum),np.shape(label))
 # print(np.shape(patch), np.shape(label))

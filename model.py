@@ -115,4 +115,5 @@ def CapsNet(net, output):
 		out_caps_dims=[16, 1],
 		routing_method="DynamicRouting"
 	)
+	# print(rt_probs.shape)
 	return rt_probs
