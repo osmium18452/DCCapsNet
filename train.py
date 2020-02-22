@@ -57,7 +57,7 @@ if args.model == 1:
 	print("USING DCCAPS***************************************")
 else:
 	pred = CapsNet(x, dataloader.numClasses)
-	print("USING CAPS***************************************")
+	print("USING CAPS*****************************************")
 pred = tf.divide(pred, tf.reduce_sum(pred, 1, keep_dims=True))
 
 loss = tf.reduce_mean(cl.losses.margin_loss(y, pred))
@@ -85,7 +85,7 @@ with tf.Session() as sess:
 				batch_y = trainLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
 				_, batchLoss, trainAcc = sess.run([optimizer, loss, accuracy],
 												  feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
-				pbar.set_postfix_str("loss: %.6f, accuracy:%.2f" % (batchLoss, trainAcc))
+				pbar.set_postfix_str("loss: %.6f, accuracy:%.2f, testLoss:-.---, testAcc:-.--" % (batchLoss, trainAcc))
 				pbar.update(1)
 
 			if iter * BATCH_SIZE < dataloader.trainNum:
@@ -95,25 +95,26 @@ with tf.Session() as sess:
 				_, bl, ta = sess.run([optimizer, loss, accuracy],
 									 feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
 
-			idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE, replace=False)
+			idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE*6, replace=False)
 			test_batch_w = testSpectrum[idx, :, :]
 			test_batch_x = testPatch[idx, :, :, :]
 			test_batch_y = testLabel[idx, :]
 			ac, ls = sess.run([accuracy, loss], feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
 			pbar.set_postfix_str(
-				"loss: %.3f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
+				"loss: %.6f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
 
 	iter = dataloader.allLabeledNum // BATCH_SIZE
+	print(iter,dataloader.allLabeledNum,BATCH_SIZE)
 	probMap=np.zeros((1,dataloader.numClasses))
-	print(np.shape(probMap))
+	# print(np.shape(probMap))
 	for i in range(iter):
 		batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
 		batch_x = allLabeledPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
 		batch_y = allLabeledLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
-		tmp=sess.run(pred,feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
+		tmp=sess.run(pred,feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
 		# print(np.shape(tmp))
 		probMap=np.concatenate((probMap,tmp),axis=0)
-		print(np.shape(probMap))
+		# print(np.shape(tmp))
 
 	if iter*BATCH_SIZE < dataloader.allLabeledNum:
 		batch_w = allLabeledSpectrum[iter * BATCH_SIZE:, :, :]
