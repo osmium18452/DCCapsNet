@@ -41,9 +41,18 @@ class DataLoader:
 			self.data[:, :, band] = (self.data[:, :, band] - np.min(self.data[:, :, band])) / \
 									(np.max(self.data[:, :, band]) - np.min(self.data[:, :, band]))
 		padSize = patchSize // 2
+		# print(np.shape(self.data))
 		self.data = np.pad(self.data, ((padSize, padSize), (padSize, padSize), (0, 0)), "symmetric")
+		# print(np.shape(self.data))
+		# print(self.height,self.width,self.bands)
 
 		self.__slice()
+		with open("seeData.txt","w+") as f:
+			last=np.shape(self.allPatch[0])
+			for a,i in enumerate(self.allPatch):
+				if last!=np.shape(i) :
+					print(a,"last: ",last,"i: ",np.shape(i))
+				last=np.shape(i)
 		if portionOrNum < 1:
 			self.__prepareDataByPortion(portionOrNum)
 		else:
@@ -60,6 +69,7 @@ class DataLoader:
 		self.testSpectrum = np.array(self.testSpectrum)
 		self.testSpectrum = np.reshape(self.testSpectrum, [-1, self.bands, 1])
 
+		print(np.shape(self.trainLabel))
 		self.trainLabel = convertToOneHot(self.trainLabel, num_classes=self.numClasses)
 		self.testLabel = convertToOneHot(self.testLabel, num_classes=self.numClasses)
 		self.trainNum = self.trainLabel.shape[0]
@@ -69,8 +79,8 @@ class DataLoader:
 			self.allLabeledNum += self.numEachClass[i]
 
 	def __patch(self, i, j):
-		widthSlice = slice(i, i + self.patchSize)
-		heightSlice = slice(j, j + self.patchSize)
+		heightSlice = slice(i, i + self.patchSize)
+		widthSlice = slice(j, j + self.patchSize)
 		return self.data[heightSlice, widthSlice, :]
 
 	def __slice(self):
@@ -133,27 +143,31 @@ class DataLoader:
 
 	def dataAugment(self, times):
 		trainNums = self.trainNum
-		for i in range(times - 1):
-			for j in range(trainNums):
-				augPatch = self.trainPatch[j]
-				augSpec = self.trainSpectrum[j]
-				augLabel=self.trainLabel[j]
-				chg = np.random.random(4)
-				if chg == 0:
-					augPatch = np.flipud(augPatch)
-				elif chg == 1:
-					augPatch = np.fliplr(augPatch)
-				elif chg == 2:
-					augPatch = augPatch + np.random.normal(0, 0.01, size=np.shape(augPatch))
-					augSpec = augSpec + np.random.normal(0,0.01,size=np.shape(augSpec))
-				else:
-					angel = random.randrange(-180, 180, 30)
-					augPatch = scipy.ndimage.interpolation.rotate(augPatch, angel, axes=(1, 0),
-																  reshape=False, output=None, order=3,
-																  mode='constant', cval=0.0, prefilter=False)
-				self.trainPatch.append(augPatch)
-				self.trainSpectrum.append(augSpec)
-				self.trainLabel.append(augLabel)
+		with tqdm(total=int((times-1)*trainNums), desc="augmenting", ncols=LENGTH) as pbar:
+			for i in range(int(times - 1)):
+				for k in range(trainNums):
+					j=random.randint(0,trainNums-1)
+					augPatch = self.trainPatch[j]
+					augSpec = self.trainSpectrum[j]
+					augLabel=self.trainLabel[j]
+					chg = random.randint(0,3)
+					if chg == 0:
+						augPatch = np.flipud(augPatch)
+					elif chg == 1:
+						augPatch = np.fliplr(augPatch)
+					elif chg == 2:
+						augPatch = augPatch + np.random.normal(0, 0.01, size=np.shape(augPatch))
+						augSpec = augSpec + np.random.normal(0,0.01,size=np.shape(augSpec))
+					else:
+						angel = random.randrange(-180, 180, 30)
+						augPatch = scipy.ndimage.interpolation.rotate(augPatch, angel, axes=(1, 0),
+																	  reshape=False, output=None, order=3,
+																	  mode='constant', cval=0.0, prefilter=False)
+					self.trainPatch.append(augPatch)
+					self.trainSpectrum.append(augSpec)
+					self.trainLabel.append(augLabel)
+					pbar.set_postfix(trainsformNo=chg)
+					pbar.update(1)
 
 	def __dataAugment(self, times):
 		index = np.random.choice(range(self.trainNum), int(self.trainNum * times), replace=False)
@@ -192,7 +206,7 @@ class DataLoader:
 		self.trainSpectrum.extend(lrSpectrum[i] for i in range(len(index)))
 		self.trainLabel.extend(lrLabel[i] for i in range(len(index)))
 
-		print(np.shape(noisePatch), type(noisePatch))
+		# print(np.shape(noisePatch), type(noisePatch))
 		self.trainPatch.extend(noisePatch[i] for i in range(len(index)))
 		self.trainSpectrum.extend(noiseSpectrum[i] for i in range(len(index)))
 		self.trainLabel.extend(noiseLabel[i] for i in range(len(index)))
@@ -240,15 +254,15 @@ class DataLoader:
 
 if __name__ == "__main__":
 	pathName = []
-	pathName.append(".\\data\\Indian_pines.mat")
-	pathName.append(".\\data\\Indian_pines_gt.mat")
+	pathName.append("./data/PaviaU.mat")
+	pathName.append("./data/PaviaU_gt.mat")
 	matName = []
-	matName.append("indian_pines")
-	matName.append("indian_pines_gt")
-	print(np.random.permutation(10))
+	matName.append("paviaU")
+	matName.append("paviaU_gt")
+	# print(np.random.permutation(10))
 	# print([5 for i in range(10)])
 
-	data = DataLoader(pathName, matName, 5, 0.1, 0)
+	data = DataLoader(pathName, matName, 5, 0.2, 0)
 	patch, spectrum, label = data.loadAllLabeledData()
 	print(np.shape(patch), np.shape(spectrum), np.shape(label))
 # print(np.shape(patch), np.shape(label))

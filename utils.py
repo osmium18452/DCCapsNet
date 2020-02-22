@@ -4,6 +4,7 @@ LENGTH=None
 def convertToOneHot(vector, num_classes=None):
 
 	assert isinstance(vector, np.ndarray)
+	# print(len(vector))
 	assert len(vector) > 0
 
 	if num_classes is None:
@@ -23,5 +24,6 @@ def calOA(probMap,groundTruth):
 	total=np.shape(groundTruth)[0]
 	print("correct: %d, all: %d"%(totalCorrect,total))
 	return totalCorrect.astype(float)/total
+
 
 
