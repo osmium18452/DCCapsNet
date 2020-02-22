@@ -207,7 +207,7 @@ class DataLoader:
 		self.trainLabel.extend(lrLabel[i] for i in range(len(index)))
 
 		# print(np.shape(noisePatch), type(noisePatch))
-		self.trainPatch.extend(noisePatch[i] for i in range(len(index)))
+		self.tra466159inPatch.extend(noisePatch[i] for i in range(len(index)))
 		self.trainSpectrum.extend(noiseSpectrum[i] for i in range(len(index)))
 		self.trainLabel.extend(noiseLabel[i] for i in range(len(index)))
 

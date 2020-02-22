@@ -1,8 +1,9 @@
 import numpy as np
 
-LENGTH=None
-def convertToOneHot(vector, num_classes=None):
+LENGTH = None
 
+
+def convertToOneHot(vector, num_classes=None):
 	assert isinstance(vector, np.ndarray)
 	# print(len(vector))
 	assert len(vector) > 0
@@ -17,13 +18,11 @@ def convertToOneHot(vector, num_classes=None):
 	result[np.arange(len(vector)), vector] = 1
 	return result.astype(int)
 
-def calOA(probMap,groundTruth):
-	pred=np.argmax(probMap,axis=1)
-	groundTruth=np.argmax(groundTruth,axis=1)
-	totalCorrect=np.sum(np.equal(pred,groundTruth))
-	total=np.shape(groundTruth)[0]
-	print("correct: %d, all: %d"%(totalCorrect,total))
-	return totalCorrect.astype(float)/total
 
-
-
+def calOA(probMap, groundTruth):
+	pred = np.argmax(probMap, axis=1)
+	groundTruth = np.argmax(groundTruth, axis=1)
+	totalCorrect = np.sum(np.equal(pred, groundTruth))
+	total = np.shape(groundTruth)[0]
+	print("correct: %d, all: %d" % (totalCorrect, total))
+	return totalCorrect.astype(float) / total
