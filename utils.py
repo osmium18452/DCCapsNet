@@ -21,7 +21,7 @@ def calOA(probMap,groundTruth):
 	groundTruth=np.argmax(groundTruth,axis=1)
 	totalCorrect=np.sum(np.equal(pred,groundTruth))
 	total=np.shape(groundTruth)[0]
-	print("true: %d, all: %d"%(totalCorrect,total))
+	print("correct: %d, all: %d"%(totalCorrect,total))
 	return totalCorrect.astype(float)/total
 
 

@@ -18,7 +18,9 @@ parser.add_argument("-a", "--aug", default=1, type=float)
 parser.add_argument("-p", "--patch_size", default=7, type=int)
 parser.add_argument("-m", "--model", default=1, type=int)
 parser.add_argument("-d", "--drop", default=1, type=float)
+parser.add_argument("--data", default=0, type=int)
 args = parser.parse_args()
+print(args)
 
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 EPOCHS = args.epochs
@@ -28,13 +30,37 @@ RATIO = args.ratio
 AUGMENT_RATIO = args.aug
 PATCH_SIZE = args.patch_size
 DROP_OUT = args.drop
+DATA = args.data
 
-pathName = []
-pathName.append("./data/Indian_pines.mat")
-pathName.append("./data/Indian_pines_gt.mat")
-matName = []
-matName.append("indian_pines")
-matName.append("indian_pines_gt")
+
+if DATA == 1:
+	pathName = []
+	pathName.append("./data/Indian_pines.mat")
+	pathName.append("./data/Indian_pines_gt.mat")
+	matName = []
+	matName.append("indian_pines")
+	matName.append("indian_pines_gt")
+elif DATA == 2:
+	pathName = []
+	pathName.append("./data/PaviaU.mat")
+	pathName.append("./data/PaviaU_gt.mat")
+	matName = []
+	matName.append("paviaU")
+	matName.append("paviaU_gt")
+elif DATA == 3:
+	pathName = []
+	pathName.append("./data/Pavia.mat")
+	pathName.append("./data/Pavia_gt.mat")
+	matName = []
+	matName.append("pavia")
+	matName.append("pavia_gt")
+else:
+	pathName = []
+	pathName.append("./data/Indian_pines.mat")
+	pathName.append("./data/Indian_pines_gt.mat")
+	matName = []
+	matName.append("indian_pines")
+	matName.append("indian_pines_gt")
 
 dataloader = DataLoader(pathName, matName, PATCH_SIZE, RATIO, AUGMENT_RATIO)
 
@@ -95,7 +121,7 @@ with tf.Session() as sess:
 				_, bl, ta = sess.run([optimizer, loss, accuracy],
 									 feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
 
-			idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE*6, replace=False)
+			idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE, replace=False)
 			test_batch_w = testSpectrum[idx, :, :]
 			test_batch_x = testPatch[idx, :, :, :]
 			test_batch_y = testLabel[idx, :]
@@ -104,29 +130,29 @@ with tf.Session() as sess:
 				"loss: %.6f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
 
 	iter = dataloader.allLabeledNum // BATCH_SIZE
-	print(iter,dataloader.allLabeledNum,BATCH_SIZE)
-	probMap=np.zeros((1,dataloader.numClasses))
+	print(iter, dataloader.allLabeledNum, BATCH_SIZE)
+	probMap = np.zeros((1, dataloader.numClasses))
 	# print(np.shape(probMap))
 	for i in range(iter):
 		batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
 		batch_x = allLabeledPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
 		batch_y = allLabeledLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
-		tmp=sess.run(pred,feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
+		tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
 		# print(np.shape(tmp))
-		probMap=np.concatenate((probMap,tmp),axis=0)
-		# print(np.shape(tmp))
+		probMap = np.concatenate((probMap, tmp), axis=0)
+	# print(np.shape(tmp))
 
-	if iter*BATCH_SIZE < dataloader.allLabeledNum:
+	if iter * BATCH_SIZE < dataloader.allLabeledNum:
 		batch_w = allLabeledSpectrum[iter * BATCH_SIZE:, :, :]
 		batch_x = allLabeledPatch[iter * BATCH_SIZE:, :, :, :]
 		batch_y = allLabeledLabel[iter * BATCH_SIZE:, :]
 		tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
-		probMap=np.concatenate((probMap,tmp),axis=0)
-		# print(np.shape(probMap))
+		probMap = np.concatenate((probMap, tmp), axis=0)
+	# print(np.shape(probMap))
 
 	# print(np.shape(probMap))
 	probMap = np.delete(probMap, (0), axis=0)
 	# print(np.shape(probMap))
 
-	OA=calOA(probMap,allLabeledLabel)
+	OA = calOA(probMap, allLabeledLabel)
 	print(OA)
