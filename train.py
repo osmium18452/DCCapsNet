@@ -6,7 +6,8 @@ import os
 import argparse
 from dataloader import DataLoader
 from model import DCCapsNet, CapsNet
-from utils import LENGTH, calOA
+from utils import LENGTH, calOA, selectData
+from postProcess import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--epochs", default=50, type=int)
@@ -17,12 +18,14 @@ parser.add_argument("-r", "--ratio", default=0.1, type=float)
 parser.add_argument("-a", "--aug", default=1, type=float)
 parser.add_argument("-p", "--patch_size", default=7, type=int)
 parser.add_argument("-m", "--model", default=1, type=int)
-parser.add_argument("-d", "--drop", default=1, type=float)
+parser.add_argument("-d", "--directory", default="./save/default")
+parser.add_argument("--predict_only")
+parser.add_argument("--restore", action="store_true")
+parser.add_argument("--drop", default=1, type=float)
 parser.add_argument("--data", default=0, type=int)
 args = parser.parse_args()
 print(args)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 EPOCHS = args.epochs
 LEARNING_RATE = args.lr
 BATCH_SIZE = args.batch_size
@@ -31,47 +34,25 @@ AUGMENT_RATIO = args.aug
 PATCH_SIZE = args.patch_size
 DROP_OUT = args.drop
 DATA = args.data
+DIRECTORY = args.directory
+RESTORE = args.restore
+PREDICT_ONLY = args.predict_only
 
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+if not os.path.exists(DIRECTORY):
+	os.mkdir(os.path.join(DIRECTORY, "model"))
+	os.mkdir(os.path.join(DIRECTORY, "img"))
+	os.mkdir(os.path.join(DIRECTORY, "data"))
+modelSavePath = os.path.join(DIRECTORY, "model", "model.ckpt")
+imgSavePath = os.path.join(DIRECTORY, "img")
+dataSavePath = os.path.join(DIRECTORY, "data")
 
-if DATA == 1:
-	pathName = []
-	pathName.append("./data/Indian_pines.mat")
-	pathName.append("./data/Indian_pines_gt.mat")
-	matName = []
-	matName.append("indian_pines")
-	matName.append("indian_pines_gt")
-elif DATA == 2:
-	pathName = []
-	pathName.append("./data/PaviaU.mat")
-	pathName.append("./data/PaviaU_gt.mat")
-	matName = []
-	matName.append("paviaU")
-	matName.append("paviaU_gt")
-elif DATA == 3:
-	pathName = []
-	pathName.append("./data/Pavia.mat")
-	pathName.append("./data/Pavia_gt.mat")
-	matName = []
-	matName.append("pavia")
-	matName.append("pavia_gt")
-else:
-	pathName = []
-	pathName.append("./data/Indian_pines.mat")
-	pathName.append("./data/Indian_pines_gt.mat")
-	matName = []
-	matName.append("indian_pines")
-	matName.append("indian_pines_gt")
-
+pathName, matName = selectData(DATA)
 dataloader = DataLoader(pathName, matName, PATCH_SIZE, RATIO, AUGMENT_RATIO)
-
-# trainPatch, trainLabel = dataloader.loadTrainPatchOnly()
-# testPatch, testLabel = dataloader.loadTestPatchOnly()
 
 trainPatch, trainSpectrum, trainLabel = dataloader.loadTrainData()
 testPatch, testSpectrum, testLabel = dataloader.loadTestData()
 allLabeledPatch, allLabeledSpectrum, allLabeledLabel = dataloader.loadAllLabeledData()
-
-# print(np.shape(trainPatch),np.shape(trainLabel))
 
 w = tf.placeholder(shape=[None, dataloader.bands, 1], dtype=tf.float32)
 x = tf.placeholder(shape=[None, dataloader.patchSize, dataloader.patchSize, dataloader.bands], dtype=tf.float32)
@@ -91,68 +72,74 @@ optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(loss)
 correctPredictions = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
 accuracy = tf.reduce_mean(tf.cast(correctPredictions, "float"))
 init = tf.global_variables_initializer()
-# print(np.shape(trainPatch), np.shape(trainSpectrum), np.shape(trainLabel))
-# exit(0)
+saver = tf.train.Saver()
 
 with tf.Session() as sess:
-	sess.run(init)
-	for epoch in range(EPOCHS):
-		if epoch % 5 == 0:
-			permutation = np.random.permutation(trainPatch.shape[0])
-			trainPatch = trainPatch[permutation, :, :, :]
-			trainSpectrum = trainSpectrum[permutation, :]
-			trainLabel = trainLabel[permutation, :]
+	leastLoss = 100.0
+	if RESTORE or PREDICT_ONLY:
+		saver.restore(sess, modelSavePath)
+	else:
+		sess.run(init)
 
-		iter = dataloader.trainNum // BATCH_SIZE
-		with tqdm(total=iter, desc="epoch %3d" % (epoch + 1), ncols=LENGTH) as pbar:
-			for i in range(iter):
-				batch_w = trainSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
-				batch_x = trainPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
-				batch_y = trainLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
-				_, batchLoss, trainAcc = sess.run([optimizer, loss, accuracy],
-												  feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
-				pbar.set_postfix_str("loss: %.6f, accuracy:%.2f, testLoss:-.---, testAcc:-.--" % (batchLoss, trainAcc))
-				pbar.update(1)
+	if not PREDICT_ONLY:
+		for epoch in range(EPOCHS):
+			if epoch % 5 == 0:
+				permutation = np.random.permutation(trainPatch.shape[0])
+				trainPatch = trainPatch[permutation, :, :, :]
+				trainSpectrum = trainSpectrum[permutation, :]
+				trainLabel = trainLabel[permutation, :]
 
-			if iter * BATCH_SIZE < dataloader.trainNum:
-				batch_w = trainSpectrum[iter * BATCH_SIZE:, :, :]
-				batch_x = trainPatch[iter * BATCH_SIZE:, :, :, :]
-				batch_y = trainLabel[iter * BATCH_SIZE:, :]
-				_, bl, ta = sess.run([optimizer, loss, accuracy],
-									 feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
+			iter = dataloader.trainNum // BATCH_SIZE
+			with tqdm(total=iter, desc="epoch %3d" % (epoch + 1), ncols=LENGTH) as pbar:
+				for i in range(iter):
+					batch_w = trainSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
+					batch_x = trainPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
+					batch_y = trainLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
+					_, batchLoss, trainAcc = sess.run([optimizer, loss, accuracy],
+													  feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
+					pbar.set_postfix_str(
+						"loss: %.6f, accuracy:%.2f, testLoss:-.---, testAcc:-.--" % (batchLoss, trainAcc))
+					pbar.update(1)
 
-			idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE, replace=False)
-			test_batch_w = testSpectrum[idx, :, :]
-			test_batch_x = testPatch[idx, :, :, :]
-			test_batch_y = testLabel[idx, :]
-			ac, ls = sess.run([accuracy, loss], feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
-			pbar.set_postfix_str(
-				"loss: %.6f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
+				if batchLoss < leastLoss:
+					saver.save(sess, save_path=modelSavePath)
+
+				if iter * BATCH_SIZE < dataloader.trainNum:
+					batch_w = trainSpectrum[iter * BATCH_SIZE:, :, :]
+					batch_x = trainPatch[iter * BATCH_SIZE:, :, :, :]
+					batch_y = trainLabel[iter * BATCH_SIZE:, :]
+					_, bl, ta = sess.run([optimizer, loss, accuracy],
+										 feed_dict={w: batch_w, x: batch_x, y: batch_y, k: DROP_OUT})
+
+				idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE, replace=False)
+				test_batch_w = testSpectrum[idx, :, :]
+				test_batch_x = testPatch[idx, :, :, :]
+				test_batch_y = testLabel[idx, :]
+				ac, ls = sess.run([accuracy, loss], feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
+				pbar.set_postfix_str(
+					"loss: %.6f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
 
 	iter = dataloader.allLabeledNum // BATCH_SIZE
 	print(iter, dataloader.allLabeledNum, BATCH_SIZE)
-	probMap = np.zeros((1, dataloader.numClasses))
-	# print(np.shape(probMap))
-	for i in range(iter):
-		batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
-		batch_x = allLabeledPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
-		batch_y = allLabeledLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
-		tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
-		# print(np.shape(tmp))
-		probMap = np.concatenate((probMap, tmp), axis=0)
-	# print(np.shape(tmp))
+	probMap = ProbMap(dataloader.numClasses)
+	with tqdm(total=iter,desc="predicting...") as pbar:
+		for i in range(iter):
+			batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
+			batch_x = allLabeledPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
+			batch_y = allLabeledLabel[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :]
+			tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
+			probMap.addData(tmp)
+			pbar.update()
 
-	if iter * BATCH_SIZE < dataloader.allLabeledNum:
-		batch_w = allLabeledSpectrum[iter * BATCH_SIZE:, :, :]
-		batch_x = allLabeledPatch[iter * BATCH_SIZE:, :, :, :]
-		batch_y = allLabeledLabel[iter * BATCH_SIZE:, :]
-		tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
-		probMap = np.concatenate((probMap, tmp), axis=0)
-	# print(np.shape(probMap))
+		if iter * BATCH_SIZE < dataloader.allLabeledNum:
+			batch_w = allLabeledSpectrum[iter * BATCH_SIZE:, :, :]
+			batch_x = allLabeledPatch[iter * BATCH_SIZE:, :, :, :]
+			batch_y = allLabeledLabel[iter * BATCH_SIZE:, :]
+			tmp = sess.run(pred, feed_dict={w: batch_w, x: batch_x, y: batch_y, k: 1})
+			probMap.addData(tmp)
 
-	# print(np.shape(probMap))
-	probMap = np.delete(probMap, (0), axis=0)
-	# print(np.shape(probMap))
+	probMap.finish()
+	probMap.save(dataSavePath)
 
-	OA = calOA(probMap, allLabeledLabel)
+	OA = calOA(probMap.map, allLabeledLabel)
 	print(OA)
