@@ -16,7 +16,7 @@ parser.add_argument("-l", "--lr", default=0.001, type=float)
 parser.add_argument("-g", "--gpu", default="0")
 parser.add_argument("-r", "--ratio", default=0.1, type=float)
 parser.add_argument("-a", "--aug", default=1, type=float)
-parser.add_argument("-p", "--patch_size", default=7, type=int)
+parser.add_argument("-p", "--patch_size", default=9, type=int)
 parser.add_argument("-m", "--model", default=1, type=int)
 parser.add_argument("-d", "--directory", default="./save/default")
 parser.add_argument("--predict_only")
@@ -40,9 +40,9 @@ PREDICT_ONLY = args.predict_only
 
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 if not os.path.exists(DIRECTORY):
-	os.mkdir(os.path.join(DIRECTORY, "model"))
-	os.mkdir(os.path.join(DIRECTORY, "img"))
-	os.mkdir(os.path.join(DIRECTORY, "data"))
+	os.makedirs(os.path.join(DIRECTORY, "model"))
+	os.makedirs(os.path.join(DIRECTORY, "img"))
+	os.makedirs(os.path.join(DIRECTORY, "data"))
 modelSavePath = os.path.join(DIRECTORY, "model", "model.ckpt")
 imgSavePath = os.path.join(DIRECTORY, "img")
 dataSavePath = os.path.join(DIRECTORY, "data")
@@ -52,7 +52,7 @@ dataloader = DataLoader(pathName, matName, PATCH_SIZE, RATIO, AUGMENT_RATIO)
 
 trainPatch, trainSpectrum, trainLabel = dataloader.loadTrainData()
 testPatch, testSpectrum, testLabel = dataloader.loadTestData()
-allLabeledPatch, allLabeledSpectrum, allLabeledLabel = dataloader.loadAllLabeledData()
+allLabeledPatch, allLabeledSpectrum, allLabeledLabel, allLabeledIndex = dataloader.loadAllLabeledData()
 
 w = tf.placeholder(shape=[None, dataloader.bands, 1], dtype=tf.float32)
 x = tf.placeholder(shape=[None, dataloader.patchSize, dataloader.patchSize, dataloader.bands], dtype=tf.float32)
@@ -82,6 +82,7 @@ with tf.Session() as sess:
 		sess.run(init)
 
 	if not PREDICT_ONLY:
+		trainProcess = TrainProcess(dataSavePath)
 		for epoch in range(EPOCHS):
 			if epoch % 5 == 0:
 				permutation = np.random.permutation(trainPatch.shape[0])
@@ -103,6 +104,7 @@ with tf.Session() as sess:
 
 				if batchLoss < leastLoss:
 					saver.save(sess, save_path=modelSavePath)
+					leastLoss = batchLoss
 
 				if iter * BATCH_SIZE < dataloader.trainNum:
 					batch_w = trainSpectrum[iter * BATCH_SIZE:, :, :]
@@ -118,11 +120,12 @@ with tf.Session() as sess:
 				ac, ls = sess.run([accuracy, loss], feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
 				pbar.set_postfix_str(
 					"loss: %.6f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
+				trainProcess.addData(batchLoss, trainAcc, ls, ac)
 
 	iter = dataloader.allLabeledNum // BATCH_SIZE
-	print(iter, dataloader.allLabeledNum, BATCH_SIZE)
-	probMap = ProbMap(dataloader.numClasses)
-	with tqdm(total=iter,desc="predicting...") as pbar:
+	probMap = ProbMap(dataloader.numClasses, dataSavePath, allLabeledLabel, allLabeledIndex, dataloader.height,
+					  dataloader.width)
+	with tqdm(total=iter, desc="predicting...") as pbar:
 		for i in range(iter):
 			batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
 			batch_x = allLabeledPatch[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :, :]
@@ -139,7 +142,9 @@ with tf.Session() as sess:
 			probMap.addData(tmp)
 
 	probMap.finish()
-	probMap.save(dataSavePath)
+	print(np.shape(probMap.map))
+	trainProcess.save()
+	probMap.save()
 
 	OA = calOA(probMap.map, allLabeledLabel)
 	print(OA)

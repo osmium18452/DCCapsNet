@@ -238,18 +238,21 @@ class DataLoader:
 		patch = []
 		spectrum = []
 		label = []
+		index = []
 		for i in range(self.numClasses):
 			patch.extend(self.classPatches[i][j] for j in range(self.numEachClass[i]))
 			spectrum.extend(self.classSpectrum[i][j] for j in range(self.numEachClass[i]))
+			index.extend(self.classIndex[i][j] for j in range(self.numEachClass[i]))
 			label.extend(i for j in range(self.numEachClass[i]))
 		patch = np.array(patch)
 		spectrum = np.array(spectrum)
 		label = convertToOneHot(np.array(label))
+		index=np.array(index)
 		spectrum = np.reshape(spectrum, [-1, self.bands, 1])
 		if patchOnly:
-			return patch, label
+			return patch, label, index
 		else:
-			return patch, spectrum, label
+			return patch, spectrum, label, index
 
 
 if __name__ == "__main__":
