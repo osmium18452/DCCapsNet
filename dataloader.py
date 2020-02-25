@@ -84,6 +84,11 @@ class DataLoader:
 		return self.data[heightSlice, widthSlice, :]
 
 	def __slice(self):
+		unique=np.unique(self.label)
+		lut=np.zeros(shape=[15],dtype=np.int)
+		for iter,i in enumerate(unique):
+			lut[i]=iter
+		self.label=lut[self.label]
 		with tqdm(total=self.height * self.width, desc="slicing ", ncols=LENGTH) as pbar:
 			for i in range(self.height):
 				for j in range(self.width):

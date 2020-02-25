@@ -35,6 +35,7 @@ def selectData(DATA=1):
 		matName = []
 		matName.append("indian_pines")
 		matName.append("indian_pines_gt")
+		print("using indian pines**************************")
 	elif DATA == 2:
 		pathName = []
 		pathName.append("./data/PaviaU.mat")
@@ -42,6 +43,7 @@ def selectData(DATA=1):
 		matName = []
 		matName.append("paviaU")
 		matName.append("paviaU_gt")
+		print("using pivia university**************************")
 	elif DATA == 3:
 		pathName = []
 		pathName.append("./data/Pavia.mat")
@@ -49,6 +51,23 @@ def selectData(DATA=1):
 		matName = []
 		matName.append("pavia")
 		matName.append("pavia_gt")
+		print("using pavia city**************************")
+	elif DATA==4:
+		pathName = []
+		pathName.append("./data/Salinas_corrected.mat")
+		pathName.append("./data/Salinas_gt.mat")
+		matName = []
+		matName.append("salinas_corrected")
+		matName.append("salinas_gt")
+		print("using salinas**************************")
+	elif DATA==5:
+		pathName = []
+		pathName.append("./data/SalinasA_corrected.mat")
+		pathName.append("./data/SalinasA_gt.mat")
+		matName = []
+		matName.append("salinasA_corrected")
+		matName.append("salinasA_gt")
+		print("using salinasA**************************")
 	else:
 		pathName = []
 		pathName.append("./data/Indian_pines.mat")
@@ -56,6 +75,7 @@ def selectData(DATA=1):
 		matName = []
 		matName.append("indian_pines")
 		matName.append("indian_pines_gt")
+		print("using indian pines**************************")
 
 	return pathName,matName
 

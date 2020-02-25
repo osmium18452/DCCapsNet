@@ -193,13 +193,13 @@ def DCCN3(patch, spectrum, k, output):
 		filters=64,
 		kernel_size=3,
 		strides=1,
-		out_caps_dims=[8, 1],
+		out_caps_dims=[6, 1],
 		method="logistic",
 		name="pt"
 	)
 
 	ptNumInput = np.prod(cl.shape(pt)[1:4])
-	pt = tf.reshape(pt, shape=[-1, ptNumInput, 8, 1])
+	pt = tf.reshape(pt, shape=[-1, ptNumInput, 6, 1])
 	ptAct = tf.reshape(ptAct, shape=[-1, ptNumInput])
 
 	sp = tf.layers.conv1d(spectrum, filters=30, kernel_size=7, strides=1, padding="valid", activation=tf.nn.relu)
