@@ -22,6 +22,7 @@ parser.add_argument("-d", "--directory", default="./save/default")
 parser.add_argument("--model_path",default="./save/default/model")
 parser.add_argument("--predict_only", action="store_true")
 parser.add_argument("--restore", action="store_true")
+parser.add_argument("--use_best_model",action="store_true")
 parser.add_argument("--drop", default=1, type=float)
 parser.add_argument("--data", default=0, type=int)
 args = parser.parse_args()
@@ -39,6 +40,7 @@ DIRECTORY = args.directory
 RESTORE = args.restore
 PREDICT_ONLY = args.predict_only
 MODEL_DIRECTORY = args.model_path
+USE_BEST_MODEL=args.use_best_model
 
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 if not os.path.exists(DIRECTORY):
@@ -140,6 +142,8 @@ with tf.Session() as sess:
 					"loss: %.6f, accuracy:%.2f, testLoss:%.3f, testAcc:%.2f" % (batchLoss, trainAcc, ls, ac))
 				trainProcess.addData(batchLoss, trainAcc, ls, ac)
 
+	if USE_BEST_MODEL:
+		saver.restore(sess, modelSavePath)
 	iter = dataloader.allLabeledNum // BATCH_SIZE
 	probMap = ProbMap(dataloader.numClasses, dataSavePath, allLabeledLabel, allLabeledIndex, dataloader.height,
 					  dataloader.width)
@@ -167,3 +171,7 @@ with tf.Session() as sess:
 
 	OA = calOA(probMap.map, allLabeledLabel)
 	print(OA)
+
+	with open(os.path.join(DIRECTORY,"summary.txt"),"wb") as f:
+		print("OA:",OA)
+		print(args)
