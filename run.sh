@@ -1,0 +1,1 @@
+python ./train.py -e 50 -b 50 -l 0.0001 -g 0 -r 0.05 -a 1 -p 7 -m 3 --data 3

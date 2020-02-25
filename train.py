@@ -5,9 +5,9 @@ import capslayer as cl
 import os
 import argparse
 from dataloader import DataLoader
-from model import DCCapsNet, CapsNet
+from model import DCCapsNet, CapsNet, DCCN2, DCCN3
 from utils import LENGTH, calOA, selectData
-from postProcess import *
+from postProcess import TrainProcess, ProbMap
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--epochs", default=50, type=int)
@@ -19,7 +19,8 @@ parser.add_argument("-a", "--aug", default=1, type=float)
 parser.add_argument("-p", "--patch_size", default=9, type=int)
 parser.add_argument("-m", "--model", default=1, type=int)
 parser.add_argument("-d", "--directory", default="./save/default")
-parser.add_argument("--predict_only")
+parser.add_argument("--model_path",default="./save/default/model")
+parser.add_argument("--predict_only", action="store_true")
 parser.add_argument("--restore", action="store_true")
 parser.add_argument("--drop", default=1, type=float)
 parser.add_argument("--data", default=0, type=int)
@@ -37,13 +38,15 @@ DATA = args.data
 DIRECTORY = args.directory
 RESTORE = args.restore
 PREDICT_ONLY = args.predict_only
+MODEL_DIRECTORY = args.model_path
 
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 if not os.path.exists(DIRECTORY):
-	os.makedirs(os.path.join(DIRECTORY, "model"))
 	os.makedirs(os.path.join(DIRECTORY, "img"))
 	os.makedirs(os.path.join(DIRECTORY, "data"))
-modelSavePath = os.path.join(DIRECTORY, "model", "model.ckpt")
+if not os.path.exists(MODEL_DIRECTORY):
+	os.makedirs(MODEL_DIRECTORY)
+modelSavePath = os.path.join(MODEL_DIRECTORY, "model.ckpt")
 imgSavePath = os.path.join(DIRECTORY, "img")
 dataSavePath = os.path.join(DIRECTORY, "data")
 
@@ -62,9 +65,15 @@ k = tf.placeholder(dtype=tf.float32)
 if args.model == 1:
 	pred = DCCapsNet(x, w, k, dataloader.numClasses)
 	print("USING DCCAPS***************************************")
-else:
+elif args.model == 2:
 	pred = CapsNet(x, dataloader.numClasses)
 	print("USING CAPS*****************************************")
+elif args.model ==3:
+	pred = DCCN2(x, w, k, dataloader.numClasses)
+	print("USING DCCN2****************************************")
+else:
+	pred=DCCN3(x, w, k, dataloader.numClasses)
+	print("USING DCCN3****************************************")
 pred = tf.divide(pred, tf.reduce_sum(pred, 1, keep_dims=True))
 
 loss = tf.reduce_mean(cl.losses.margin_loss(y, pred))
@@ -82,7 +91,7 @@ with tf.Session() as sess:
 		sess.run(init)
 
 	if not PREDICT_ONLY:
-		trainProcess = TrainProcess(dataSavePath)
+		trainProcess = TrainProcess(DIRECTORY)
 		for epoch in range(EPOCHS):
 			if epoch % 5 == 0:
 				permutation = np.random.permutation(trainPatch.shape[0])
@@ -101,6 +110,15 @@ with tf.Session() as sess:
 					pbar.set_postfix_str(
 						"loss: %.6f, accuracy:%.2f, testLoss:-.---, testAcc:-.--" % (batchLoss, trainAcc))
 					pbar.update(1)
+
+					if i == 0 and epoch == 0:
+						idx = np.random.choice(dataloader.testNum, size=BATCH_SIZE, replace=False)
+						test_batch_w = testSpectrum[idx, :, :]
+						test_batch_x = testPatch[idx, :, :, :]
+						test_batch_y = testLabel[idx, :]
+						ac, ls = sess.run([accuracy, loss],
+										  feed_dict={w: test_batch_w, x: test_batch_x, y: test_batch_y, k: 1})
+						trainProcess.addData(batchLoss, trainAcc, ls, ac)
 
 				if batchLoss < leastLoss:
 					saver.save(sess, save_path=modelSavePath)
@@ -143,7 +161,8 @@ with tf.Session() as sess:
 
 	probMap.finish()
 	print(np.shape(probMap.map))
-	trainProcess.save()
+	if not PREDICT_ONLY:
+		trainProcess.save()
 	probMap.save()
 
 	OA = calOA(probMap.map, allLabeledLabel)
