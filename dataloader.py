@@ -85,7 +85,7 @@ class DataLoader:
 
 	def __slice(self):
 		unique=np.unique(self.label)
-		lut=np.zeros(shape=[15],dtype=np.int)
+		lut=np.zeros(np.max(unique)+1,dtype=np.int)
 		for iter,i in enumerate(unique):
 			lut[i]=iter
 		self.label=lut[self.label]
