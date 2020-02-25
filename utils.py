@@ -82,7 +82,7 @@ def selectData(DATA=1):
 
 
 if __name__ == "__main__":
-	with open("newModelTest.sh", "w+") as f:
+	with open("testscript/newModelTest.sh", "w+") as f:
 		counter = 0
 		for lr in (0.0001, 0.0005):
 			for r in (0.05, 0.1):

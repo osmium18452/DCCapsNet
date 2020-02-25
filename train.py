@@ -172,6 +172,6 @@ with tf.Session() as sess:
 	OA = calOA(probMap.map, allLabeledLabel)
 	print(OA)
 
-	with open(os.path.join(DIRECTORY,"summary.txt"),"wb") as f:
-		print("OA:",OA)
-		print(args)
+	with open(os.path.join(DIRECTORY,"summary.txt"),"w+") as f:
+		print("OA:",OA,file=f)
+		print(args,file=f)
