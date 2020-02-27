@@ -10,7 +10,7 @@ import scipy.ndimage
 class DataLoader:
 	classPatches, classSpectrum, classIndex = [], [], []
 	allPatch, allPatchLabel, allSpectrum = [], [], []
-	trainPatch, trainLabel, trainSpectrum = [], [], []
+	trainPatch, trainLabel, trainSpectrum, trainIndex = [], [], [], []
 	testPatch, testLabel, testSpectrum = [], [], []
 	numEachClass = []
 	trainNum = 0
@@ -47,14 +47,14 @@ class DataLoader:
 		# print(self.height,self.width,self.bands)
 
 		self.__slice()
-		with open("seeData.txt","w+") as f:
-			last=np.shape(self.allPatch[0])
-			for a,i in enumerate(self.allPatch):
-				if last!=np.shape(i) :
-					print(a,"last: ",last,"i: ",np.shape(i))
-				last=np.shape(i)
+		with open("seeData.txt", "w+") as f:
+			last = np.shape(self.allPatch[0])
+			for a, i in enumerate(self.allPatch):
+				if last != np.shape(i):
+					print(a, "last: ", last, "i: ", np.shape(i))
+				last = np.shape(i)
 		if portionOrNum < 1:
-			self.__prepareDataByPortion(portionOrNum)
+			self.__prepareDataByRatio(portionOrNum)
 		else:
 			self.__prepareDataByNum(portionOrNum)
 		if ratio != 0:
@@ -63,13 +63,14 @@ class DataLoader:
 		self.trainLabel = np.array(self.trainLabel)
 		self.trainPatch = np.array(self.trainPatch)
 		self.trainSpectrum = np.array(self.trainSpectrum)
+		self.trainIndex = np.array(self.trainIndex)
 		self.trainSpectrum = np.reshape(self.trainSpectrum, [-1, self.bands, 1])
 		self.testLabel = np.array(self.testLabel)
 		self.testPatch = np.array(self.testPatch)
 		self.testSpectrum = np.array(self.testSpectrum)
 		self.testSpectrum = np.reshape(self.testSpectrum, [-1, self.bands, 1])
 
-		print(np.shape(self.trainLabel))
+		# print(np.shape(self.trainLabel))
 		self.trainLabel = convertToOneHot(self.trainLabel, num_classes=self.numClasses)
 		self.testLabel = convertToOneHot(self.testLabel, num_classes=self.numClasses)
 		self.trainNum = self.trainLabel.shape[0]
@@ -84,11 +85,11 @@ class DataLoader:
 		return self.data[heightSlice, widthSlice, :]
 
 	def __slice(self):
-		unique=np.unique(self.label)
-		lut=np.zeros(np.max(unique)+1,dtype=np.int)
-		for iter,i in enumerate(unique):
-			lut[i]=iter
-		self.label=lut[self.label]
+		unique = np.unique(self.label)
+		lut = np.zeros(np.max(unique) + 1, dtype=np.int)
+		for iter, i in enumerate(unique):
+			lut[i] = iter
+		self.label = lut[self.label]
 		with tqdm(total=self.height * self.width, desc="slicing ", ncols=LENGTH) as pbar:
 			for i in range(self.height):
 				for j in range(self.width):
@@ -107,16 +108,17 @@ class DataLoader:
 		for i in range(self.numClasses):
 			self.numEachClass.append(len(self.classIndex[i]))
 
-	def __prepareDataByPortion(self, portion):
+	def __prepareDataByRatio(self, ratio):
 		np.random.seed(0)
 		with tqdm(total=self.numClasses, desc="dividing", ncols=LENGTH) as pbar:
 			for i in range(self.numClasses):
 				label = i
-				index = np.random.choice(self.numEachClass[label], int((self.numEachClass[label]) * portion + 0.5),
+				index = np.random.choice(self.numEachClass[label], int((self.numEachClass[label]) * ratio + 0.5),
 										 replace=False)
 				self.trainPatch.extend(self.classPatches[label][j] for j in index)
 				self.trainSpectrum.extend(self.classSpectrum[label][j] for j in index)
 				self.trainLabel.extend(label for j in range(len(index)))
+				self.trainIndex.extend(self.classIndex[label][j] for j in index)
 				self.trainNum += len(index)
 
 				index = np.setdiff1d(range(self.numEachClass[label]), index)
@@ -148,21 +150,21 @@ class DataLoader:
 
 	def dataAugment(self, times):
 		trainNums = self.trainNum
-		with tqdm(total=int((times-1)*trainNums), desc="augmenting", ncols=LENGTH) as pbar:
+		with tqdm(total=int((times - 1) * trainNums), desc="augmenting", ncols=LENGTH) as pbar:
 			for i in range(int(times - 1)):
 				for k in range(trainNums):
-					j=random.randint(0,trainNums-1)
+					j = random.randint(0, trainNums - 1)
 					augPatch = self.trainPatch[j]
 					augSpec = self.trainSpectrum[j]
-					augLabel=self.trainLabel[j]
-					chg = random.randint(0,3)
+					augLabel = self.trainLabel[j]
+					chg = random.randint(0, 3)
 					if chg == 0:
 						augPatch = np.flipud(augPatch)
 					elif chg == 1:
 						augPatch = np.fliplr(augPatch)
 					elif chg == 2:
 						augPatch = augPatch + np.random.normal(0, 0.01, size=np.shape(augPatch))
-						augSpec = augSpec + np.random.normal(0,0.01,size=np.shape(augSpec))
+						augSpec = augSpec + np.random.normal(0, 0.01, size=np.shape(augSpec))
 					else:
 						angel = random.randrange(-180, 180, 30)
 						augPatch = scipy.ndimage.interpolation.rotate(augPatch, angel, axes=(1, 0),
@@ -252,7 +254,7 @@ class DataLoader:
 		patch = np.array(patch)
 		spectrum = np.array(spectrum)
 		label = convertToOneHot(np.array(label))
-		index=np.array(index)
+		index = np.array(index)
 		spectrum = np.reshape(spectrum, [-1, self.bands, 1])
 		if patchOnly:
 			return patch, label, index

@@ -27,6 +27,12 @@ def calOA(probMap, groundTruth):
 	print("correct: %d, all: %d" % (totalCorrect, total))
 	return totalCorrect.astype(float) / total
 
+def calAA(probMap,groundTruth):
+	pass
+
+def calKappa(probMap,groundTruth):
+	pass
+
 
 def selectData(DATA=1):
 	if DATA == 1:

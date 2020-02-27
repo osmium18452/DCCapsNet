@@ -4,6 +4,7 @@ import os
 import pickle
 from dataloader import DataLoader
 from tqdm import tqdm
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class TrainProcess:
@@ -42,6 +43,7 @@ class TrainProcess:
 		self.testAcc = pickle.load(f)
 
 	def draw(self):
+		plt.figure(figsize=(8,4.5))
 		ax1 = plt.subplot()
 		plt.title("training and testing")
 		ax1.set_xlabel("epochs")
@@ -50,10 +52,15 @@ class TrainProcess:
 		ax2 = ax1.twinx()
 		ax2.set_ylabel("accuracy")
 
-		l1, = ax1.plot(x, self.trainLoss, color="blue", label="train loss", alpha=0.5)
-		l2, = ax2.plot(x, self.trainAcc, color="orange", label="train accuracy", alpha=0.5)
-		l3, = ax1.plot(x, self.testLoss, color="green", label="test loss", alpha=0.5)
-		l4, = ax2.plot(x, self.testAcc, color="red", label="test accuracy", alpha=0.5)
+		kwargs={
+			"marker":None,
+			"lw":2,
+			"alpha":0.9
+		}
+		l1, = ax1.plot(x, self.trainLoss, color="tab:blue", label="train loss", **kwargs)
+		l2, = ax2.plot(x, self.trainAcc, color="tab:orange", label="train accuracy", **kwargs)
+		l3, = ax1.plot(x, self.testLoss, color="tab:green", label="test loss", **kwargs)
+		l4, = ax2.plot(x, self.testAcc, color="tab:red", label="test accuracy", **kwargs)
 
 		plt.legend(handles=[l1, l2, l3, l4], loc="center right")
 		# sv = plt.gcf()
@@ -80,7 +87,7 @@ class TrainProcess:
 
 
 class ProbMap:
-	def __init__(self, numClasses, path, groundTruth, index, height, width):
+	def __init__(self, numClasses, path, groundTruth, index, height, width, trainIndex):
 		self.map = np.zeros((1, numClasses))
 		self.groundTruth = groundTruth
 		self.index = index
@@ -88,6 +95,7 @@ class ProbMap:
 		self.height = height
 		self.width = width
 		self.groundTruth = np.argmax(self.groundTruth, axis=1)
+		self.trainIndex = trainIndex
 
 	def addData(self, data):
 		self.map = np.concatenate((self.map, data), axis=0)
@@ -106,7 +114,6 @@ class ProbMap:
 
 	def drawGt(self):
 		groundTruth = np.zeros(shape=(self.height, self.width))
-		# print(self.groundTruth)
 		with tqdm(total=np.shape(self.groundTruth)[0], desc="processing gt") as pbar:
 			for i in range(np.shape(self.groundTruth)[0]):
 				index = self.index[i]
@@ -115,11 +122,11 @@ class ProbMap:
 				groundTruth[h][w] += (self.groundTruth[i] + 1)
 				pbar.update()
 
-		plt.imshow(groundTruth)
+		plt.imshow(groundTruth,cmap="Set1_r")
 		plt.colorbar()
 		plt.show()
 
-	def drawPm(self):
+	def drawPredictedMap(self):
 		pred = np.argmax(self.map, axis=1)
 		probMap = np.zeros(shape=(self.height, self.width))
 		with tqdm(total=np.shape(self.groundTruth)[0], desc="processing gt") as pbar:
@@ -131,6 +138,90 @@ class ProbMap:
 				pbar.update()
 
 		plt.imshow(probMap)
+		plt.colorbar()
+		plt.show()
+
+	def drawProbMap3D(self):
+		pred = np.argmax(self.map, axis=1)
+		probMap = np.zeros(shape=(self.height, self.width))
+		with tqdm(total=np.shape(self.groundTruth)[0], desc="processing gt") as pbar:
+			for i in range(np.shape(self.groundTruth)[0]):
+				index = self.index[i]
+				h = index // self.height
+				w = index % self.height
+				probMap[h][w] += (pred[i] + 1)
+				pbar.update()
+		x=np.arange(0,self.height,1)
+		y=np.arange(0,self.width,1)
+		x,y=np.meshgrid(x,y)
+		fig=plt.figure()
+		ax=Axes3D(fig)
+		ax.plot_surface(x,y,probMap,rstride=1,cstride=1)
+		# plt.imshow(probMap)
+		# plt.colorbar()
+		plt.show()
+
+	def drawProbMap(self):
+		probMap = np.zeros(shape=[self.height, self.width])
+		for i in range(np.shape(self.groundTruth)[0]):
+			index = self.index[i]
+			h = index // self.height
+			w = index % self.height
+			probMap[h][w] += self.map[i][self.groundTruth[i]]
+
+		plt.imshow(probMap)
+		plt.colorbar()
+		plt.show()
+
+	def drawTrainMap(self):
+		groundTruth = np.zeros(shape=(self.height, self.width))
+		with tqdm(total=np.shape(self.groundTruth)[0], desc="processing gt") as pbar:
+			for i in range(np.shape(self.groundTruth)[0]):
+				index = self.index[i]
+				h = index // self.height
+				w = index % self.height
+				groundTruth[h][w] += (self.groundTruth[i] + 1)
+				pbar.update()
+
+		trainMap = np.zeros(shape=[self.height, self.width])
+		# print(np.shape(self.groundTruth)[0])
+		for i in range(np.shape(self.trainIndex)[0]):
+			index = self.trainIndex[i]
+			h = index // self.height
+			w = index % self.height
+			trainMap[h][w] = 1
+
+		for i in range(self.height):
+			for j in range(self.width):
+				trainMap[i][j] *= groundTruth[i][j]
+
+		plt.imshow(trainMap)
+		plt.colorbar()
+		plt.show()
+
+	def drawTestMap(self):
+		groundTruth = np.zeros(shape=(self.height, self.width))
+		with tqdm(total=np.shape(self.groundTruth)[0], desc="processing gt") as pbar:
+			for i in range(np.shape(self.groundTruth)[0]):
+				index = self.index[i]
+				h = index // self.height
+				w = index % self.height
+				groundTruth[h][w] += (self.groundTruth[i] + 1)
+				pbar.update()
+
+		testMap = np.ones(shape=[self.height, self.width])
+		# print(np.shape(self.groundTruth)[0])
+		for i in range(np.shape(self.trainIndex)[0]):
+			index = self.trainIndex[i]
+			h = index // self.height
+			w = index % self.height
+			testMap[h][w] = 0
+
+		for i in range(self.height):
+			for j in range(self.width):
+				testMap[i][j] *= groundTruth[i][j]
+
+		plt.imshow(testMap)
 		plt.colorbar()
 		plt.show()
 
@@ -147,10 +238,16 @@ if __name__ == '__main__':
 	matName = []
 	matName.append("indian_pines")
 	matName.append("indian_pines_gt")
-	dataloader = DataLoader(pathName, matName, 9, 0.5, 1)
+	print("using indian pines**************************")
+	dataloader = DataLoader(pathName, matName, 9, 0.05, 1)
 	allLabeledPatch, allLabeledSpectrum, allLabeledLabel, allLabeledIndex = dataloader.loadAllLabeledData()
 	probMap = ProbMap(dataloader.numClasses, os.path.join(".", "save", "default", "data"),
-					  allLabeledLabel, allLabeledIndex, dataloader.height, dataloader.width)
+					  allLabeledLabel, allLabeledIndex, dataloader.height, dataloader.width, dataloader.trainIndex)
 	probMap.restore()
-	probMap.drawGt()
-	probMap.drawPm()
+	# print(dataloader.numClasses)
+	# probMap.drawGt()
+	# probMap.drawPredictedMap()
+	probMap.drawProbMap()
+	# probMap.drawGt()
+	# probMap.drawTestMap()
+	# probMap.drawTrainMap()

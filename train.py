@@ -19,10 +19,10 @@ parser.add_argument("-a", "--aug", default=1, type=float)
 parser.add_argument("-p", "--patch_size", default=9, type=int)
 parser.add_argument("-m", "--model", default=1, type=int)
 parser.add_argument("-d", "--directory", default="./save/default")
-parser.add_argument("--model_path",default="./save/default/model")
+parser.add_argument("--model_path", default="./save/default/model")
 parser.add_argument("--predict_only", action="store_true")
 parser.add_argument("--restore", action="store_true")
-parser.add_argument("--use_best_model",action="store_true")
+parser.add_argument("--use_best_model", action="store_true")
 parser.add_argument("--drop", default=1, type=float)
 parser.add_argument("--data", default=0, type=int)
 args = parser.parse_args()
@@ -40,7 +40,7 @@ DIRECTORY = args.directory
 RESTORE = args.restore
 PREDICT_ONLY = args.predict_only
 MODEL_DIRECTORY = args.model_path
-USE_BEST_MODEL=args.use_best_model
+USE_BEST_MODEL = args.use_best_model
 
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 if not os.path.exists(DIRECTORY):
@@ -70,11 +70,11 @@ if args.model == 1:
 elif args.model == 2:
 	pred = CapsNet(x, dataloader.numClasses)
 	print("USING CAPS*****************************************")
-elif args.model ==3:
+elif args.model == 3:
 	pred = DCCN2(x, w, k, dataloader.numClasses)
 	print("USING DCCN2****************************************")
 else:
-	pred=DCCN3(x, w, k, dataloader.numClasses)
+	pred = DCCN3(x, w, k, dataloader.numClasses)
 	print("USING DCCN3****************************************")
 pred = tf.divide(pred, tf.reduce_sum(pred, 1, keep_dims=True))
 
@@ -146,7 +146,7 @@ with tf.Session() as sess:
 		saver.restore(sess, modelSavePath)
 	iter = dataloader.allLabeledNum // BATCH_SIZE
 	probMap = ProbMap(dataloader.numClasses, dataSavePath, allLabeledLabel, allLabeledIndex, dataloader.height,
-					  dataloader.width)
+					  dataloader.width, dataloader.trainIndex)
 	with tqdm(total=iter, desc="predicting...") as pbar:
 		for i in range(iter):
 			batch_w = allLabeledSpectrum[i * BATCH_SIZE:(i + 1) * BATCH_SIZE, :, :]
@@ -172,6 +172,6 @@ with tf.Session() as sess:
 	OA = calOA(probMap.map, allLabeledLabel)
 	print(OA)
 
-	with open(os.path.join(DIRECTORY,"summary.txt"),"w+") as f:
-		print("OA:",OA,file=f)
-		print(args,file=f)
+	with open(os.path.join(DIRECTORY, "summary.txt"), "w+") as f:
+		print("OA:", OA, file=f)
+		print(args, file=f)
